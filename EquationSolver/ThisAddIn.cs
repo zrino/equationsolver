@@ -20,11 +20,12 @@ namespace EquationSolver
         public static String[] symbols = new String[200];
         public static String currToken = String.Empty;
         public static TreeView tr = new TreeView();
+        public static string trName = "TreeView";
         public static int k = 0;
         private Microsoft.Office.Tools.Word.Controls.TreeView treeView = null;
-        private Microsoft.Office.Tools.Word.Controls.TextBox errorTB = null;
-
-
+        
+        public int maxEquations = 10;
+        public int currentIndex = 0;
         private void ThisAddIn_Startup(object sender, System.EventArgs e)
         {
            /* this.Application.DocumentOpen += new Word.ApplicationEvents4_DocumentOpenEventHandler(WorkWithDocument);
@@ -42,7 +43,10 @@ namespace EquationSolver
                 Word.Document Doc = this.Application.ActiveDocument;
                 string xmlString = Doc.Content.WordOpenXML;
                 
-                StringBuilder expression = new StringBuilder();
+                StringBuilder[] expression = new StringBuilder[maxEquations];
+                for (int ix = 0; ix < maxEquations; ++ix)
+                    expression[ix] = new StringBuilder();
+
                 using (XmlReader reader = XmlReader.Create(new StringReader(xmlString)))
                 {
                     // XML Parsing loop
@@ -51,54 +55,40 @@ namespace EquationSolver
                         switch (reader.Name)
                         {
                             case "m:t":
-                                expression.Append(reader.ReadElementContentAsString());
+                                expression[this.currentIndex].Append(reader.ReadElementContentAsString());
                                 break;
                             case "m:oMath":
-                                if(reader.NodeType == XmlNodeType.EndElement)
-                                    expression.Append("?");                             // end of expression
+                                if (reader.NodeType == XmlNodeType.EndElement)
+                                    this.currentIndex++;                 // end of expression
                                 break;
                         }
                     }
-                    if (expression.Length > 0)
+                    for (int i = 0; i < currentIndex; i++)
                     {
-                        symbols = lexic_analysis(expression.ToString());
-
-
-                        Doc.Paragraphs[1].Range.InsertParagraphBefore();
-                        Doc.Paragraphs[1].Range.Select();
-                        Document extendedDocument = Globals.Factory.GetVstoObject(Doc);
-
-                        if (extendedDocument.Controls.Contains(errorTB))
+                        if (expression[i].Length > 0)
                         {
-                            extendedDocument.Controls.Remove(errorTB);
+                            pos = 0;
+                            for (int k = 0; k < symbols.Length; k++)
+                                symbols[k] = "";
+                            lexic_analysis(expression[i].ToString()).CopyTo(symbols,0);
 
-                        }
-                        errorTB = extendedDocument.Controls.AddTextBox(Doc.Paragraphs[2].Range, 100, 100, "ErrorTB");
-                        if (symbols.Length > 0)
-                        {
-                            for (int i = 0; i < symbols.Length; i++)
-                                errorTB.Text += xmlString;
 
+                            //Doc.Paragraphs[1].Range.InsertParagraphBefore();
+                           // Doc.Paragraphs[1].Range.Select();
+                            Document extendedDocument = Globals.Factory.GetVstoObject(Doc);
+
+                            ast = parse_string(symbols);
+
+                            treeView = extendedDocument.Controls.AddTreeView(Doc.Paragraphs[1].Range, 200, 200, ThisAddIn.trName + i.ToString());
+
+                            printAst(ast);
+                            
                         }
                         else
-                            errorTB.Text = "Ništa nije učitano" + xmlString;
-                        ast = parse_string(symbols);
+                            MessageBox.Show("Nije pronađena nijedna jednadžba");
 
-
-                        if (extendedDocument.Controls.Contains(treeView))
-                        {
-                            extendedDocument.Controls.Remove(treeView);
-
-                        }
-                        treeView = extendedDocument.Controls.AddTreeView(Doc.Paragraphs[1].Range, 200, 200, "EquationTR");
-
-                        printAst(ast);
-                        MessageBox.Show("Done");
                     }
-                    else
-                        MessageBox.Show("Nije pronađena nijedna jednadžba");
-
-
+                    MessageBox.Show("Done");
                 }
 
             }
@@ -204,7 +194,7 @@ namespace EquationSolver
         {
             Node ast = new Node();
 
-            int i = 0;
+            //int i = 0;
             ast = expression();
             return ast;
         }
