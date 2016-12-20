@@ -14,13 +14,14 @@ namespace EquationSolver
 {
     public partial class ThisAddIn
     {
-        List<float> vars = new List<float>();
+        public static Dictionary<String,double> vars = new Dictionary<String,double>();
         public static int pos = 0;
         public static Node ast = new Node();
         public static String[] symbols = new String[200];
         public static String currToken = String.Empty;
         public static TreeView tr = new TreeView();
         public static string trName = "TreeView";
+        public static TextBox tb = new TextBox();
         public static int k = 0;
         private Microsoft.Office.Tools.Word.Controls.TreeView treeView = null;
         
@@ -63,6 +64,8 @@ namespace EquationSolver
                                 break;
                         }
                     }
+                    Document extendedDocument = Globals.Factory.GetVstoObject(Doc);
+                    tb = extendedDocument.Controls.AddTextBox(Doc.Paragraphs[1].Range, 200, 200, "AnswerTextBox");
                     for (int i = 0; i < currentIndex; i++)
                     {
                         if (expression[i].Length > 0)
@@ -75,19 +78,25 @@ namespace EquationSolver
 
                             //Doc.Paragraphs[1].Range.InsertParagraphBefore();
                            // Doc.Paragraphs[1].Range.Select();
-                            Document extendedDocument = Globals.Factory.GetVstoObject(Doc);
+                            
 
                             ast = parse_string(symbols);
-
-                            treeView = extendedDocument.Controls.AddTreeView(Doc.Paragraphs[1].Range, 200, 200, ThisAddIn.trName + i.ToString());
-
-                            printAst(ast);
+                            evaluateTree(ast);
+                            //treeView = extendedDocument.Controls.AddTreeView(Doc.Range(25,50), 200, 200, ThisAddIn.trName + i.ToString());
+                            
+                            //printAst(ast);
                             
                         }
                         else
                             MessageBox.Show("Nije pronađena nijedna jednadžba");
 
                     }
+                    foreach (KeyValuePair<string, double> entry in vars)
+                    {
+                        tb.Text += entry.Key.ToString() + "=" + entry.Value.ToString() + ", ";
+                        // do something with entry.Value or entry.Key
+                    }
+                    
                     MessageBox.Show("Done");
                 }
 
@@ -330,13 +339,67 @@ namespace EquationSolver
         }
         #endregion
 
-        #region VSTO generated code
+        #region Evaluator
+        public static double evaluateTree(Node ast)
+        {
+            double ret;
+            if ((ast.left == null && ast.right == null) && IsNumeric(ast.value))
+            {
+                Double.TryParse(ast.value, System.Globalization.NumberStyles.Any, System.Globalization.NumberFormatInfo.InvariantInfo, out ret);
+                return ret;
+            }
+            else if ((ast.left == null && ast.right == null) && IsName(ast.value)) // variable is already defined
+            {
+                if (vars.ContainsKey(ast.value))
+                    return vars[ast.value];
+                else                                          //bacaj grešku
+                    return 0;
+            }
+            else if (ast.op == "=")                            //defining var in Dictionary vars
+            {
+                vars[ast.left.value] = evaluateTree(ast.right);
+                return 0;
+            }
+            else
+            {
+                return operate(evaluateTree(ast.left), evaluateTree(ast.right), ast.op); //else recursive call down the tree
+            }
+        }
 
-        /// <summary>
-        /// Required method for Designer support - do not modify
-        /// the contents of this method with the code editor.
-        /// </summary>
-        private void InternalStartup()
+        public static double operate(double arg1, double arg2, String op)
+        {
+            double ret;
+            switch (op)
+            {
+                case "+":
+                    ret = arg1 + arg2;
+                    break;
+                case "-":
+                    ret = arg1 - arg2;
+                    break;
+                case "*":
+                    ret = arg1 * arg2;
+                    break;
+                case "/":
+                    ret = arg1 / arg2;
+                    break;
+                default:
+                    ret = 0;
+                    break;
+            }
+            return ret;
+        }
+        #endregion
+
+    
+
+    #region VSTO generated code
+
+    /// <summary>
+    /// Required method for Designer support - do not modify
+    /// the contents of this method with the code editor.
+    /// </summary>
+    private void InternalStartup()
         {
             this.Startup += new System.EventHandler(ThisAddIn_Startup);
             this.Shutdown += new System.EventHandler(ThisAddIn_Shutdown);
