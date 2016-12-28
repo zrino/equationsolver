@@ -55,6 +55,20 @@ namespace EquationSolver
                     {
                         switch (reader.Name)
                         {
+                            /* fractions */
+                            case "m:num":
+                                if (reader.NodeType == XmlNodeType.EndElement)
+                                    expression[this.currentIndex].Append(")/"); //add end of parenthesis and division operator
+                                else
+                                    expression[this.currentIndex].Append("(");
+                                break;
+                            case "m:den":
+                                if (reader.NodeType == XmlNodeType.EndElement)
+                                    expression[this.currentIndex].Append(")"); //add end of parenthesis and division operator
+                                else
+                                    expression[this.currentIndex].Append("(");
+                                break;
+                            /* EOF fractions */
                             case "m:t":
                                 expression[this.currentIndex].Append(reader.ReadElementContentAsString());
                                 break;
@@ -65,7 +79,14 @@ namespace EquationSolver
                         }
                     }
                     Document extendedDocument = Globals.Factory.GetVstoObject(Doc);
-                    tb = extendedDocument.Controls.AddTextBox(Doc.Paragraphs[1].Range, 200, 200, "AnswerTextBox");
+                    Word.Range rng = this.Application.ActiveDocument.Range(0, 7);
+                    if (extendedDocument.Controls.IndexOf("AnswerTextBox") == -1)
+                        tb = extendedDocument.Controls.AddTextBox(rng, 200, 200, "AnswerTextBox");
+                    else
+                    {
+                        tb = (TextBox)extendedDocument.Controls["AnswerTextBox"];
+                        tb.Text = "";
+                    }
                     for (int i = 0; i < currentIndex; i++)
                     {
                         if (expression[i].Length > 0)
@@ -118,6 +139,7 @@ namespace EquationSolver
             Word.Document currentDocument = this.Application.ActiveDocument;
             Document extendedDocument = Globals.Factory.GetVstoObject(this.Application.ActiveDocument);
             extendedDocument.Controls.Remove("EquationTR");
+            extendedDocument.Controls.Remove("AnswerTextBox");
         }
         public static bool IsNumeric(object Expression)
         {
